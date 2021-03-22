@@ -13,6 +13,8 @@ class Config:
         config = json.load(f)
         self.uri = config['connection']['uri']
         self.token = config['connection']['token']
+        self.project = config['connection']['project']
+        self.testPlanId = config['connection']['testPlanId']
       except ValueError:
         print(f'Failed to load json from {fname}')
         return
