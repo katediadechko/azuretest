@@ -1,9 +1,8 @@
 {
   "connection":
   {
-      "uri": "https://dev.azure.com/kdyadechko",
+      "projectUri": "https://dev.azure.com/kdiadechko/azuretest",
       "token": "n2xglfvqucgbh7trztqg7b5sp6zxgwgc3dkhkgawbv3w6iucxota",
-      "project": "TestFrameworkStubAgile",
-      "testPlanId": 13
+      "testPlanId": 1
   }
 }
