@@ -11,19 +11,18 @@ class Config:
     with f:
       try:
         config = json.load(f)
-        self.projectUri = config['connection']['projectUri']
+        projectUriChunks = config['connection']['projectUri'].rstrip('/').split('/')
+        self.collection = projectUriChunks[-2]
+        self.project = projectUriChunks[-1]
+        self.baseUri = '/'.join(projectUriChunks[:-2]) + '/'
         self.token = config['connection']['token']
         self.testPlanId = config['connection']['testPlanId']
-        self.collection = self.projectUri.split('/')[-2]
-        self.project = self.projectUri.split('/')[-1]
       except ValueError:
         print(f'Failed to load json from {fname}')
         return
 
 def main():
   config = Config('azuretest.json')
-  print(config.collection)
-  print(config.project)
 
 if __name__ == '__main__':
   main()
