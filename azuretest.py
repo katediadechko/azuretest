@@ -39,14 +39,24 @@ class RestClient:
     self.session.headers.update({'Authorization': tokenBase64})
 
   def __get(self, uri):
-    response = self.session.get(uri, timeout = (self.connectTimeout, self.readTimeout))
-    response.raise_for_status()
+    res = []
+    contToken = ''
+    while True:
+      contUri = uri + f'?$top=200&continuationtoken={contToken}'
+      response = self.session.get(contUri, timeout = (self.connectTimeout, self.readTimeout))
+      response.raise_for_status()
 
-    try:
-      result = response.json()
-      return result
-    except ValueError:
-      raise RestClientError(f'Failed to convert response to JSON: {response.text}')
+      try:
+        json = response.json()
+        res.append(json)
+      except ValueError:
+        raise RestClientError(f'Failed to convert response to JSON: {response.text}')
+
+      if 'x-ms-continuationtoken' in response.headers:
+        contToken = response.headers['x-ms-continuationtoken']
+      else:
+        break
+    return res
 
   def GetTestPlanData(self, testPlanId):
     uri = f'{self.uri}/testplan/Plans/{testPlanId}/Suites'
