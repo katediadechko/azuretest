@@ -1,49 +1,32 @@
 
+from atconfig import *
+from attypes import *
+
 import json
 import base64
 import requests
-
-class Config:
-  def __init__(self, fname):
-    try:
-      f = open(fname, 'r')
-    except OSError:
-      print(f'Failed to open file: {fname}')
-      return
-    with f:
-      try:
-        config = json.load(f)
-        self.projectUri = config['connection']['projectUri']
-        projectUriChunks = self.projectUri.rstrip('/').split('/')
-        self.collection = projectUriChunks[-2]
-        self.project = projectUriChunks[-1]
-        self.baseUri = '/'.join(projectUriChunks[:-2]) + '/'
-        self.token = config['connection']['token']
-        self.testPlanId = config['connection']['testPlanId']
-      except ValueError:
-        print(f'Failed to load json from: {fname}')
-        return
 
 class RestClientError(Exception):
   pass
 
 class RestClient:
-  def __init__(self, uri, token):
-    uri.rstrip('/')
-    self.uri = uri + '/_apis'
-    self.session = requests.Session()
-    self.connectTimeout = 5
-    self.readTimeout = 120
-    token += ':'
-    tokenBase64 = b'Basic ' + base64.b64encode(token.encode("utf8"))
-    self.session.headers.update({'Authorization': tokenBase64})
+  _connectTimeout = 5
+  _readTimeout = 120
 
-  def __get(self, uri):
+  def __init__(self, baseUri, accessToken):
+    baseUri.rstrip('/')
+    self._baseUri = baseUri + '/_apis'
+    self.__session = requests.Session()
+    accessToken += ':'
+    tokenBase64 = b'Basic ' + base64.b64encode(accessToken.encode("utf8"))
+    self.__session.headers.update({'Authorization': tokenBase64})
+
+  def _get(self, uri):
     res = []
     contToken = ''
     while True:
       contUri = uri + f'?$top=200&continuationtoken={contToken}'
-      response = self.session.get(contUri, timeout = (self.connectTimeout, self.readTimeout))
+      response = self.__session.get(contUri, timeout = (self._connectTimeout, self._readTimeout))
       response.raise_for_status()
 
       try:
@@ -58,14 +41,27 @@ class RestClient:
         break
     return res
 
-  def GetTestPlanData(self, testPlanId):
-    uri = f'{self.uri}/testplan/Plans/{testPlanId}/Suites'
-    return self.__get(uri)
+class TestPlanClient(RestClient):
+  def __init__(self, projectUri, accessToken, testPlanId):
+    RestClient.__init__(self, projectUri, accessToken)
+    self.__testPlanId = testPlanId
+
+  def GetSuites(self):
+    uri = f'{self._baseUri}/testplan/Plans/{self.__testPlanId}/Suites'
+    jsons = self._get(uri)
+    suites = []
+    for json in jsons:
+      for suiteData in json['value']:
+        parentSuiteId = suiteData['parentSuite']['id'] if 'parentSuite' in suiteData else None
+        suites.append(TestSuite(suiteData['id'], suiteData['name'], TestSuiteType.Parse(suiteData['suiteType']), parentSuiteId))
+    return suites
 
 def main():
   config = Config('azuretest.json')
-  client = RestClient(config.projectUri, config.token)
-  print(client.GetTestPlanData(config.testPlanId))
+  testPlanClient = TestPlanClient(config.projectUri, config.token, config.testPlanId)
+  testSuites = testPlanClient.GetSuites()
+  for testSuite in testSuites:
+    testSuite.Print()
 
 if __name__ == '__main__':
   main()
