@@ -49,7 +49,7 @@ class RestClient:
       raise RestClientError(f'Failed to convert response to JSON: {response.text}')
 
   def GetTestPlanData(self, testPlanId):
-    uri = f'{self.uri}/testplan/Plans/{testPlanId}'
+    uri = f'{self.uri}/testplan/Plans/{testPlanId}/Suites'
     return self.__get(uri)
 
 def main():
