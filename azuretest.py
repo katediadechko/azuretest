@@ -1,28 +1,62 @@
 
 import json
+import base64
+import requests
+from requests.auth import HTTPBasicAuth
 
 class Config:
   def __init__(self, fname):
     try:
       f = open(fname, 'r')
     except OSError:
-      print(f'Failed to open file {fname}')
+      print(f'Failed to open file: {fname}')
       return
     with f:
       try:
         config = json.load(f)
-        projectUriChunks = config['connection']['projectUri'].rstrip('/').split('/')
+        self.projectUri = config['connection']['projectUri']
+        projectUriChunks = self.projectUri.rstrip('/').split('/')
         self.collection = projectUriChunks[-2]
         self.project = projectUriChunks[-1]
         self.baseUri = '/'.join(projectUriChunks[:-2]) + '/'
         self.token = config['connection']['token']
         self.testPlanId = config['connection']['testPlanId']
       except ValueError:
-        print(f'Failed to load json from {fname}')
+        print(f'Failed to load json from: {fname}')
         return
+
+class RestClientError(Exception):
+  pass
+
+class RestClient:
+  def __init__(self, uri, token):
+    uri.rstrip('/')
+    self.uri = uri + '/_apis'
+    self.session = requests.Session()
+    self.connectTimeout = 5
+    self.readTimeout = 120
+    token += ':'
+    tokenBase64 = b'Basic ' + base64.b64encode(token.encode("utf8"))
+    self.session.headers.update({'Authorization': tokenBase64})
+
+  def __get(self, uri):
+    response = self.session.get(uri, timeout = (self.connectTimeout, self.readTimeout))
+    response.raise_for_status()
+
+    try:
+      result = response.json()
+      return result
+    except ValueError:
+      raise RestClientError(f'Failed to convert response to JSON: {response.text}')
+
+  def GetTestPlanData(self, testPlanId):
+    uri = f'{self.uri}/testplan/Plans/{testPlanId}'
+    return self.__get(uri)
 
 def main():
   config = Config('azuretest.json')
+  client = RestClient(config.projectUri, config.token)
+  print(client.GetTestPlanData(config.testPlanId))
 
 if __name__ == '__main__':
   main()
