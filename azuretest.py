@@ -2,7 +2,6 @@
 import json
 import base64
 import requests
-from requests.auth import HTTPBasicAuth
 
 class Config:
   def __init__(self, fname):
