@@ -71,8 +71,33 @@ class TestPlanClient(RestClient):
             suiteData['parentSuite']['id'] if 'parentSuite' in suiteData else None))
     return suites
 
-  def ListCases(self):
-    pass
+  def ListCases(self, suiteId):
+    uri = f'{self._baseUri}/testplan/Plans/{self.__testPlanId}/Suites/{suiteId}/TestCase'
+    jsons = self._get(uri, True)
+    cases = []
+    for json in jsons:
+      for caseData in json['value']:
+        workitem = self.GetWorkitem(caseData['workItem']['id'])
+        cases.append(
+          TestCase(
+            caseData['workItem']['id'],
+            caseData['workItem']['name'],
+            workitem.desc))
+    return cases
+
+  def ListPoints(self, suiteId):
+    uri = f'{self._baseUri}/testplan/Plans/{self.__testPlanId}/Suites/{suiteId}/TestPoint'
+    jsons = self._get(uri, True)
+    points = []
+    for json in jsons:
+      for pointData in json['value']:
+        points.append(
+          TestPoint(
+            pointData['id'],
+            pointData['testSuite']['id'],
+            pointData['testCaseReference']['id'],
+            pointData['configuration']['id']))
+    return points
 
   def ListConfigs(self):
     uri = f'{self._baseUri}/testplan/configurations'
@@ -93,6 +118,15 @@ def main():
   testSuites = testPlanClient.ListSuites()
   for testSuite in testSuites:
     print(testSuite)
+    testCases = testPlanClient.ListCases(testSuite.id)
+    for testCase in testCases:
+      print(f'\t{testCase}')
+    print()
+    testPoints = testPlanClient.ListPoints(testSuite.id)
+    for testPoint in testPoints:
+      print(f'\t{testPoint}')
+    print()
+  print()
   testConfigs = testPlanClient.ListConfigs()
   for testConfig in testConfigs:
     print(testConfig)

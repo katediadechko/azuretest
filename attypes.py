@@ -8,4 +8,4 @@ TestSuiteType = Enum('TestSuiteType', 'staticTestSuite requirementTestSuite dyna
 TestSuite = namedtuple('TestSuite', 'id name desc type parentId')
 TestCase = namedtuple('TestCase', 'id name desc')
 TestConfig = namedtuple('TestConfig', 'id name desc')
-TestPoint = namedtuple('TestPoint', 'testSuiteId testCaseId testConfigId')
+TestPoint = namedtuple('TestPoint', 'id testSuiteId testCaseId testConfigId')
