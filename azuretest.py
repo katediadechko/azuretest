@@ -21,11 +21,11 @@ class RestClient:
     tokenBase64 = b'Basic ' + base64.b64encode(accessToken.encode("utf8"))
     self.__session.headers.update({'Authorization': tokenBase64})
 
-  def _get(self, uri):
+  def _get(self, uri, cont):
     res = []
     contToken = ''
     while True:
-      contUri = uri + f'?$top=200&continuationtoken={contToken}'
+      contUri = uri + f'?$top=200&continuationtoken={contToken}' if cont == True else uri
       response = self.__session.get(contUri, timeout = (self._connectTimeout, self._readTimeout))
       response.raise_for_status()
 
@@ -35,7 +35,7 @@ class RestClient:
       except ValueError:
         raise RestClientError(f'Failed to convert response to JSON: {response.text}')
 
-      if 'x-ms-continuationtoken' in response.headers:
+      if cont == True and 'x-ms-continuationtoken' in response.headers:
         contToken = response.headers['x-ms-continuationtoken']
       else:
         break
@@ -46,14 +46,29 @@ class TestPlanClient(RestClient):
     RestClient.__init__(self, projectUri, accessToken)
     self.__testPlanId = testPlanId
 
+  def GetWorkitem(self, id):
+    uri = f'{self._baseUri}/wit/workitems/?ids={id}'
+    widata = self._get(uri, False)[0]['value'][0]
+    wi = Workitem(
+      widata['id'],
+      widata['rev'],
+      widata['fields']['System.Description'] if 'System.Description' in widata['fields'] else None)
+    return wi
+
   def GetSuites(self):
     uri = f'{self._baseUri}/testplan/Plans/{self.__testPlanId}/Suites'
-    jsons = self._get(uri)
+    jsons = self._get(uri, True)
     suites = []
     for json in jsons:
       for suiteData in json['value']:
-        parentSuiteId = suiteData['parentSuite']['id'] if 'parentSuite' in suiteData else None
-        suites.append(TestSuite(suiteData['id'], suiteData['name'], TestSuiteType[suiteData['suiteType']], parentSuiteId))
+        workitem = self.GetWorkitem(suiteData['id'])
+        suites.append(
+          TestSuite(
+            suiteData['id'],
+            suiteData['name'],
+            workitem.desc,
+            TestSuiteType[suiteData['suiteType']],
+            suiteData['parentSuite']['id'] if 'parentSuite' in suiteData else None))
     return suites
 
 def main():
