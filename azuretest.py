@@ -52,7 +52,7 @@ class TestPlanClient(RestClient):
     wi = Workitem(
       widata['id'],
       widata['rev'],
-      widata['fields']['System.Description'] if 'System.Description' in widata['fields'] else None)
+      widata['fields']['System.Description'] if 'System.Description' in widata['fields'] else '')
     return wi
 
   def GetSuites(self):
@@ -71,12 +71,31 @@ class TestPlanClient(RestClient):
             suiteData['parentSuite']['id'] if 'parentSuite' in suiteData else None))
     return suites
 
+  def GetCases(self):
+    pass
+
+  def GetConfigs(self):
+    uri = f'{self._baseUri}/testplan/configurations'
+    jsons = self._get(uri, True)
+    configs = []
+    for json in jsons:
+      for configData in json['value']:
+        configs.append(
+          TestConfig(
+            configData['id'],
+            configData['name'],
+            configData['description']))
+    return configs
+
 def main():
   config = Config('azuretest.json')
   testPlanClient = TestPlanClient(config.projectUri, config.token, config.testPlanId)
   testSuites = testPlanClient.GetSuites()
   for testSuite in testSuites:
     print(testSuite)
+  testConfigs = testPlanClient.GetConfigs()
+  for testConfig in testConfigs:
+    print(testConfig)
 
 if __name__ == '__main__':
   main()
