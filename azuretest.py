@@ -53,7 +53,7 @@ class TestPlanClient(RestClient):
     for json in jsons:
       for suiteData in json['value']:
         parentSuiteId = suiteData['parentSuite']['id'] if 'parentSuite' in suiteData else None
-        suites.append(TestSuite(suiteData['id'], suiteData['name'], TestSuiteType.Parse(suiteData['suiteType']), parentSuiteId))
+        suites.append(TestSuite(suiteData['id'], suiteData['name'], TestSuiteType[suiteData['suiteType']], parentSuiteId))
     return suites
 
 def main():
@@ -61,7 +61,7 @@ def main():
   testPlanClient = TestPlanClient(config.projectUri, config.token, config.testPlanId)
   testSuites = testPlanClient.GetSuites()
   for testSuite in testSuites:
-    testSuite.Print()
+    print(testSuite)
 
 if __name__ == '__main__':
   main()
