@@ -41,12 +41,19 @@ class RestClient:
         break
     return res
 
-class TestPlanClient(RestClient):
+class TestPlan(RestClient):
   def __init__(self, projectUri, accessToken, testPlanId):
     RestClient.__init__(self, projectUri, accessToken)
     self.__testPlanId = testPlanId
+    self.__listConfigs()
+    self.__listSuites()
+    self.__testCases = {}
+    self.__testPoints = {}
+    for suite in self.__testSuites:
+      self.__testCases[suite.id] = self.__listCasesInSuite(suite.id)
+      self.__testPoints[suite.id] = self.__listPointsInSuite(suite.id)
 
-  def GetWorkitem(self, id):
+  def __getWorkitem(self, id):
     uri = f'{self._baseUri}/wit/workitems/?ids={id}'
     widata = self._get(uri, False)[0]['value'][0]
     wi = Workitem(
@@ -55,29 +62,30 @@ class TestPlanClient(RestClient):
       widata['fields']['System.Description'] if 'System.Description' in widata['fields'] else '')
     return wi
 
-  def ListSuites(self):
+  def __listSuites(self):
+    print(f'Listing test suites')
     uri = f'{self._baseUri}/testplan/Plans/{self.__testPlanId}/Suites'
     jsons = self._get(uri, True)
-    suites = []
+    self.__testSuites = []
     for json in jsons:
       for suiteData in json['value']:
-        workitem = self.GetWorkitem(suiteData['id'])
-        suites.append(
+        workitem = self.__getWorkitem(suiteData['id'])
+        self.__testSuites.append(
           TestSuite(
             suiteData['id'],
             suiteData['name'],
             workitem.desc,
             TestSuiteType[suiteData['suiteType']],
             suiteData['parentSuite']['id'] if 'parentSuite' in suiteData else None))
-    return suites
 
-  def ListCases(self, suiteId):
+  def __listCasesInSuite(self, suiteId):
+    print(f'Listing test cases in test suite {suiteId}')
     uri = f'{self._baseUri}/testplan/Plans/{self.__testPlanId}/Suites/{suiteId}/TestCase'
     jsons = self._get(uri, True)
     cases = []
     for json in jsons:
       for caseData in json['value']:
-        workitem = self.GetWorkitem(caseData['workItem']['id'])
+        workitem = self.__getWorkitem(caseData['workItem']['id'])
         cases.append(
           TestCase(
             caseData['workItem']['id'],
@@ -85,7 +93,8 @@ class TestPlanClient(RestClient):
             workitem.desc))
     return cases
 
-  def ListPoints(self, suiteId):
+  def __listPointsInSuite(self, suiteId):
+    print(f'Listing test points in test suite {suiteId}')
     uri = f'{self._baseUri}/testplan/Plans/{self.__testPlanId}/Suites/{suiteId}/TestPoint'
     jsons = self._get(uri, True)
     points = []
@@ -99,37 +108,35 @@ class TestPlanClient(RestClient):
             pointData['configuration']['id']))
     return points
 
-  def ListConfigs(self):
+  def __listConfigs(self):
+    print(f'Listing test configs')
     uri = f'{self._baseUri}/testplan/configurations'
     jsons = self._get(uri, True)
-    configs = []
+    self.__testConfigs = []
     for json in jsons:
       for configData in json['value']:
-        configs.append(
+        self.__testConfigs.append(
           TestConfig(
             configData['id'],
             configData['name'],
             configData['description']))
-    return configs
+
+  def Print(self):
+    for testSuite in self.__testSuites:
+      print()
+      print(testSuite)
+      print()
+      print(f'\t{self.__testCases[testSuite.id]}')
+      print()
+      print(f'\t{self.__testPoints[testSuite.id]}')
+    print()
+    for testConfig in self.__testConfigs:
+      print(testConfig)
 
 def main():
   config = Config('azuretest.json')
-  testPlanClient = TestPlanClient(config.projectUri, config.token, config.testPlanId)
-  testSuites = testPlanClient.ListSuites()
-  for testSuite in testSuites:
-    print(testSuite)
-    testCases = testPlanClient.ListCases(testSuite.id)
-    for testCase in testCases:
-      print(f'\t{testCase}')
-    print()
-    testPoints = testPlanClient.ListPoints(testSuite.id)
-    for testPoint in testPoints:
-      print(f'\t{testPoint}')
-    print()
-  print()
-  testConfigs = testPlanClient.ListConfigs()
-  for testConfig in testConfigs:
-    print(testConfig)
+  testPlan = TestPlan(config.projectUri, config.token, config.testPlanId)
+  testPlan.Print()
 
 if __name__ == '__main__':
   main()
