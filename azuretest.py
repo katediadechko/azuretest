@@ -7,6 +7,7 @@ import base64
 import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
+import re
 
 class RestClientError(Exception):
   pass
@@ -55,12 +56,17 @@ class TestPlan(RestClient):
     self.__listSuites()
     self.__testCases = []
     self.__testPoints = []
+    self.__testTags = []
+    tags = set()
     for suite in self.__testSuites:
       suiteTestCases = self.__listCasesInSuite(suite.id)
       for case in suiteTestCases:
         # store unique test case records
         if not any(tc.id == case.id for tc in self.__testCases):
           self.__testCases.append(case)
+        for tag in case.tags:
+          tags.add(tag)
+      self.__testTags = sorted(list(tags))
       suiteTestPoints = self.__listPointsInSuite(suite.id)
       for point in suiteTestPoints:
         # test point records are always unique
@@ -72,7 +78,8 @@ class TestPlan(RestClient):
     wi = Workitem(
       widata['id'],
       widata['rev'],
-      widata['fields']['System.Description'] if 'System.Description' in widata['fields'] else '')
+      widata['fields']['System.Description'] if 'System.Description' in widata['fields'] else '',
+      widata['fields']['System.Tags'] if 'System.Tags' in widata['fields'] else '')
     return wi
 
   def __listSuites(self):
@@ -103,7 +110,9 @@ class TestPlan(RestClient):
           TestCase(
             caseData['workItem']['id'],
             caseData['workItem']['name'],
-            workitem.desc))
+            workitem.desc,
+            re.split('; ', workitem.tags),
+            None))
     return cases
 
   def __listPointsInSuite(self, suiteId):
@@ -139,10 +148,11 @@ class TestPlan(RestClient):
       print(testSuite)
     for testCase in self.__testCases:
       print(testCase)
-    for testPoint in self.__testPoints:
-      print(testPoint)
     for testConfig in self.__testConfigs:
       print(testConfig)
+    for testPoint in self.__testPoints:
+      print(testPoint)
+    print(self.__testTags)
 
 def main():
   config = Config('azuretest.json')
