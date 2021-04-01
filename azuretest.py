@@ -5,6 +5,8 @@ from attypes import *
 import json
 import base64
 import requests
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 
 class RestClientError(Exception):
   pass
@@ -17,6 +19,10 @@ class RestClient:
     baseUri.rstrip('/')
     self._baseUri = baseUri + '/_apis'
     self.__session = requests.Session()
+    retry = Retry(connect = 3, backoff_factor = 0.5)
+    adapter = HTTPAdapter(max_retries = retry)
+    self.__session.mount('http://', adapter)
+    self.__session.mount('https://', adapter)
     accessToken += ':'
     tokenBase64 = b'Basic ' + base64.b64encode(accessToken.encode("utf8"))
     self.__session.headers.update({'Authorization': tokenBase64})
@@ -47,11 +53,18 @@ class TestPlan(RestClient):
     self.__testPlanId = testPlanId
     self.__listConfigs()
     self.__listSuites()
-    self.__testCases = {}
-    self.__testPoints = {}
+    self.__testCases = []
+    self.__testPoints = []
     for suite in self.__testSuites:
-      self.__testCases[suite.id] = self.__listCasesInSuite(suite.id)
-      self.__testPoints[suite.id] = self.__listPointsInSuite(suite.id)
+      suiteTestCases = self.__listCasesInSuite(suite.id)
+      for case in suiteTestCases:
+        # store unique test case records
+        if not any(tc.id == case.id for tc in self.__testCases):
+          self.__testCases.append(case)
+      suiteTestPoints = self.__listPointsInSuite(suite.id)
+      for point in suiteTestPoints:
+        # test point records are always unique
+        self.__testPoints.append(point)
 
   def __getWorkitem(self, id):
     uri = f'{self._baseUri}/wit/workitems/?ids={id}'
@@ -123,13 +136,11 @@ class TestPlan(RestClient):
 
   def Print(self):
     for testSuite in self.__testSuites:
-      print()
       print(testSuite)
-      print()
-      print(f'\t{self.__testCases[testSuite.id]}')
-      print()
-      print(f'\t{self.__testPoints[testSuite.id]}')
-    print()
+    for testCase in self.__testCases:
+      print(testCase)
+    for testPoint in self.__testPoints:
+      print(testPoint)
     for testConfig in self.__testConfigs:
       print(testConfig)
 
